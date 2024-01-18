@@ -33,17 +33,32 @@ async function getObjectFromS3(objectKey) {
     Bucket: myImageBucket,
     Key: objectKey,
   };
-  const response = await s3Client.send(new GetObjectCommand(getObjectParams));
-  const responseObject = {
-    LastModified: response.LastModified,
-    ETag: response.ETag,
-    Size: response.ContentLength,
-    ContentType: response.ContentType,
-  };
+  try {
+    const response = await s3Client.send(new GetObjectCommand(getObjectParams));
+    const buffer = await streamToBuffer(response.Body);
 
-  return responseObject;
+    const responseObject = {
+      LastModified: response.LastModified,
+      ETag: response.ETag,
+      Size: response.ContentLength,
+      ContentType: response.ContentType,
+      Content: buffer,
+    };
+
+    return responseObject;
+  } catch (error) {
+    console.error("Error fetching image from S3:", error);
+    throw error;
+  }
 }
-
+async function streamToBuffer(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on("data", (chunk) => chunks.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+}
 module.exports = {
   listObjectsFromS3,
   getObjectFromS3,
