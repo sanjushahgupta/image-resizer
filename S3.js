@@ -44,7 +44,6 @@ async function getObjectFromS3(objectKey) {
       ContentType: response.ContentType,
       Content: buffer,
     };
-
     return responseObject;
   } catch (error) {
     console.error("Error fetching image from S3:", error);
@@ -61,35 +60,27 @@ async function streamToBuffer(stream) {
   });
 }
 
-//to post resized image to S3
-async function postObjectToS3(file) {
-  if (!file) {
-    return res.status(400).json({ error: "No file uploaded." });
-  }
-  const fileName = file.name;
-  const fileContent = fs.readFileSync(file.tempFilePath);
-  const putObjectParams = {
-    Bucket: myImageBucket,
-    Key: fileName,
-    Body: fileContent,
-  };
-
-  const putObjectCmd = new PutObjectCommand(putObjectParams);
-  await s3Client.send(putObjectCmd);
-  return;
-}
-
+//to post image to S3
 async function UploadToS3(file) {
   if (!file) {
     return res.status(400).json({ error: "No file uploaded." });
   }
-  const fileName = file.name;
-  const fileContent = fs.readFileSync(file.tempFilePath);
-  const putObjectParams = {
-    Bucket: myImageBucket,
-    Key: fileName,
-    Body: fileContent,
-  };
+  let putObjectParams;
+  if (file.name) {
+    const fileContent = fs.readFileSync(file.tempFilePath);
+    putObjectParams = {
+      Bucket: myImageBucket,
+      Key: file.name,
+      Body: fileContent,
+    };
+  } else {
+    const fileName = "thumbnail.png";
+    putObjectParams = {
+      Bucket: myImageBucket,
+      Key: fileName,
+      Body: file,
+    };
+  }
 
   try {
     const putObjectCmd = new PutObjectCommand(putObjectParams);
@@ -104,6 +95,5 @@ async function UploadToS3(file) {
 module.exports = {
   listObjectsFromS3,
   getObjectFromS3,
-  postObjectToS3,
   UploadToS3,
 };
