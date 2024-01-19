@@ -1,14 +1,13 @@
 const express = require("express");
-const { getObjectFromS3, resizeImage, uploadToS3 } = require("./resizer.js");
+const { resize } = require("./resizer.js");
 
 const server = express();
 
 server.get("/resize", async (req, res) => {
   const imageToResize = req.query.image;
-  let imageBuffer;
 
   try {
-    imageBuffer = await getObjectFromS3(imageToResize);
+    resize(imageToResize);
   } catch (e) {
     if (e.Code == "NoSuchKey") {
       res.send("File does not exist");
@@ -19,15 +18,7 @@ server.get("/resize", async (req, res) => {
     return;
   }
 
-  const resizedBuffer = await resizeImage(imageBuffer);
-  const resizedImageName = "thumbnail_" + imageToResize;
-
-  try {
-    await uploadToS3(resizedBuffer, resizedImageName);
-    res.send("Done");
-  } catch (error) {
-    res.send(error);
-  }
+  res.send("Done");
 });
 
 server.listen(3000, () => {
