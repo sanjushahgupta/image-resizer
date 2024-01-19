@@ -40,7 +40,6 @@ async function getObjectFromS3(objectKey) {
     const Imagebuffer = await streamToBuffer(response.Body);
     return Imagebuffer;
   } catch (error) {
-    console.error("Error fetching image from S3:", error);
     throw error;
   }
 }
@@ -55,7 +54,7 @@ async function streamToBuffer(stream) {
 }
 
 //to post image to S3
-async function UploadToS3(file, imageToBeResize = "") {
+async function UploadToS3(file, name) {
   let putObjectParams;
   if (!file) {
     return res.status(400).json({ error: "No file uploaded." });
@@ -69,7 +68,7 @@ async function UploadToS3(file, imageToBeResize = "") {
       Body: fileContent,
     };
   } else {
-    const fileName = "thumbnail_" + imageToBeResize;
+    const fileName = "thumbnail_" + name;
     putObjectParams = {
       Bucket: myImageBucket,
       Key: fileName,
@@ -82,7 +81,6 @@ async function UploadToS3(file, imageToBeResize = "") {
     await s3Client.send(putObjectCmd);
     return;
   } catch (error) {
-    console.error("Error uploading image to S3:", error);
     throw error;
   }
 }

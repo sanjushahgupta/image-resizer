@@ -40,14 +40,27 @@ server.get("/image", async (req, res) => {
 
 //To resize image
 server.get("/resize", async (req, res) => {
+  const imageToResize = req.query.image;
+  let imageBuffer;
   try {
-    const imageToBeResize = "chat.png";
-    const imageBuffer = await s3Bucket.getObjectFromS3(imageToBeResize);
-    const resizedBuffer = await resizeImage(imageBuffer);
-    await s3Bucket.UploadToS3(resizedBuffer, imageToBeResize);
+    imageBuffer = await s3Bucket.getObjectFromS3(imageToResize);
+  } catch (e) {
+    if (e.Code == "NoSuchKey") {
+      res.send("That file does not exist.");
+      return;
+    }
+
+    res.send(e.message);
+    return;
+  }
+
+  const resizedBuffer = await resizeImage(imageBuffer);
+
+  try {
+    await s3Bucket.UploadToS3(resizedBuffer, imageToResize);
     res.send("Fetched, resized and uploaded to S3.");
   } catch (error) {
-    res.send("Something went wrong.");
+    res.send(error);
   }
 });
 
