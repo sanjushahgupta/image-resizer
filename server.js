@@ -1,52 +1,27 @@
 const express = require("express");
-const fileUpload = require("express-fileupload");
+const sharp = require("sharp");
+const {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+} = require("@aws-sdk/client-s3");
 
-const { resizeImage } = require("./resize");
-const s3Bucket = require("./S3");
 const server = express();
-
-server.use(
-  fileUpload({
-    useTempFiles: true,
-    tempFileDir: "/tmp/",
-  })
-);
-
-server.get("/", (res) => {
-  res.send("Welcome to Image Resizer");
+const s3Client = new S3Client({
+  region: "eu-central-1",
+  forcePathStyle: true,
 });
+const myImageBucket = "image-bucket-535";
 
-//To fetch all images from S3
-server.get("/images", async (req, res) => {
-  const objects = await s3Bucket.listObjectsFromS3();
-  res.send(objects);
-});
-
-//To fetch image directly from S3 by providing query parameter key
-server.get("/image", async (req, res) => {
-  try {
-    const objectKey = req.query.key;
-    const imageBuffer = await s3Bucket.getObjectFromS3(objectKey);
-
-    if (!Buffer.isBuffer(imageBuffer)) {
-      return res.status(500).send("image buffer: error");
-    }
-    res.setHeader("Content-Type", "image/png");
-    res.end(imageBuffer);
-  } catch (error) {
-    res.status(500).send("Error");
-  }
-});
-
-//To resize image
 server.get("/resize", async (req, res) => {
   const imageToResize = req.query.image;
   let imageBuffer;
+
   try {
-    imageBuffer = await s3Bucket.getObjectFromS3(imageToResize);
+    imageBuffer = await getObjectFromS3(imageToResize);
   } catch (e) {
     if (e.Code == "NoSuchKey") {
-      res.send("That file does not exist.");
+      res.send("File does not exist");
       return;
     }
 
@@ -55,26 +30,69 @@ server.get("/resize", async (req, res) => {
   }
 
   const resizedBuffer = await resizeImage(imageBuffer);
+  const resizedImageName = "thumbnail_" + imageToResize;
 
   try {
-    await s3Bucket.UploadToS3(resizedBuffer, imageToResize);
-    res.send("Fetched, resized and uploaded to S3.");
+    await uploadToS3(resizedBuffer, resizedImageName);
+    res.send("Done");
   } catch (error) {
     res.send(error);
   }
 });
 
-//To post image to S3
-server.post("/image", async (req, res) => {
+async function resizeImage(imageBuffer) {
+  let transform = sharp(imageBuffer);
+  transform = transform.resize({
+    width: 150,
+  });
+
+  return await transform.toBuffer();
+}
+
+async function getObjectFromS3(objectKey) {
+  const getObjectParams = {
+    Bucket: myImageBucket,
+    Key: objectKey,
+  };
+
   try {
-    const file = req.files.image;
-    await s3Bucket.UploadToS3(file);
-    res.send("Image uploaded");
+    const response = await s3Client.send(new GetObjectCommand(getObjectParams));
+    const Imagebuffer = await streamToBuffer(response.Body);
+    return Imagebuffer;
   } catch (error) {
-    console.log(error);
-    res.status(500).send("Error uploading image.");
+    throw error;
   }
-});
+}
+
+async function streamToBuffer(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on("data", (chunk) => chunks.push(chunk));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+}
+
+async function uploadToS3(file, fileName) {
+  let putObjectParams;
+  if (!file) {
+    throw Error("File not found");
+  }
+
+  putObjectParams = {
+    Bucket: myImageBucket,
+    Key: fileName,
+    Body: file,
+  };
+
+  try {
+    const putObjectCmd = new PutObjectCommand(putObjectParams);
+    await s3Client.send(putObjectCmd);
+    return;
+  } catch (error) {
+    throw error;
+  }
+}
 
 server.listen(3000, () => {
   console.log("Server started");
