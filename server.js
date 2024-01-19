@@ -1,9 +1,10 @@
 const express = require("express");
-const server = express();
-const imageSize = require("image-size");
+const fileUpload = require("express-fileupload");
+
 const { resizeImage } = require("./resize");
 const s3Bucket = require("./S3");
-const fileUpload = require("express-fileupload");
+const server = express();
+
 server.use(
   fileUpload({
     useTempFiles: true,
@@ -11,7 +12,7 @@ server.use(
   })
 );
 
-server.get("/", (req, res) => {
+server.get("/", (res) => {
   res.send("Welcome to Image Resizer");
 });
 
@@ -25,13 +26,13 @@ server.get("/images", async (req, res) => {
 server.get("/image", async (req, res) => {
   try {
     const objectKey = req.query.key;
-    const fileDetails = await s3Bucket.getObjectFromS3(objectKey);
+    const imageBuffer = await s3Bucket.getObjectFromS3(objectKey);
 
-    if (!Buffer.isBuffer(fileDetails.Content)) {
-      return res.status(500).send("Error");
+    if (!Buffer.isBuffer(imageBuffer)) {
+      return res.status(500).send("image buffer: error");
     }
     res.setHeader("Content-Type", "image/png");
-    res.end(fileDetails.Content);
+    res.end(imageBuffer);
   } catch (error) {
     res.status(500).send("Error");
   }
@@ -40,12 +41,13 @@ server.get("/image", async (req, res) => {
 //To resize image
 server.get("/resize", async (req, res) => {
   try {
-    const objectKey = "cover.png";
-    await resizeImage(objectKey, "png", 100);
-    res.send("Your image has been resized.");
+    const imageToBeResize = "chat.png";
+    const imageBuffer = await s3Bucket.getObjectFromS3(imageToBeResize);
+    const resizedBuffer = await resizeImage(imageBuffer);
+    await s3Bucket.UploadToS3(resizedBuffer, imageToBeResize);
+    res.send("Fetched, resized and uploaded to S3.");
   } catch (error) {
-    console.error("Error", error);
-    res.status(500).send("Error");
+    res.send("Something went wrong.");
   }
 });
 
@@ -54,11 +56,6 @@ server.post("/image", async (req, res) => {
   try {
     const file = req.files.image;
     await s3Bucket.UploadToS3(file);
-    await s3Bucket.getObjectFromS3(file.name);
-    const resizedImage = await resizeImage(file.name, "png", 100);
-    await s3Bucket.UploadToS3(resizedImage);
-    const resizedImagewidth = imageSize(resizedImage).width;
-    console.log("resized image height", resizedImagewidth);
     res.send("Image uploaded");
   } catch (error) {
     console.log(error);

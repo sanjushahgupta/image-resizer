@@ -5,6 +5,7 @@ const {
   GetObjectCommand,
 } = require("@aws-sdk/client-s3");
 const fs = require("fs");
+
 const s3Client = new S3Client({
   region: "eu-central-1",
   forcePathStyle: true,
@@ -36,15 +37,8 @@ async function getObjectFromS3(objectKey) {
 
   try {
     const response = await s3Client.send(new GetObjectCommand(getObjectParams));
-    const buffer = await streamToBuffer(response.Body);
-    const responseObject = {
-      LastModified: response.LastModified,
-      ETag: response.ETag,
-      Size: response.ContentLength,
-      ContentType: response.ContentType,
-      Content: buffer,
-    };
-    return responseObject;
+    const Imagebuffer = await streamToBuffer(response.Body);
+    return Imagebuffer;
   } catch (error) {
     console.error("Error fetching image from S3:", error);
     throw error;
@@ -61,11 +55,12 @@ async function streamToBuffer(stream) {
 }
 
 //to post image to S3
-async function UploadToS3(file) {
+async function UploadToS3(file, imageToBeResize = "") {
+  let putObjectParams;
   if (!file) {
     return res.status(400).json({ error: "No file uploaded." });
   }
-  let putObjectParams;
+
   if (file.name) {
     const fileContent = fs.readFileSync(file.tempFilePath);
     putObjectParams = {
@@ -74,7 +69,7 @@ async function UploadToS3(file) {
       Body: fileContent,
     };
   } else {
-    const fileName = "thumbnail.png";
+    const fileName = "thumbnail_" + imageToBeResize;
     putObjectParams = {
       Bucket: myImageBucket,
       Key: fileName,

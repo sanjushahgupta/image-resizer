@@ -1,15 +1,16 @@
 const sharp = require("sharp");
-const fs = require("fs");
-const fromS3 = require("./S3");
 
-const resizeImage = async function (objectKey, format, width) {
-  const fileDetails = await fromS3.getObjectFromS3(objectKey);
-  let transform = sharp(fileDetails.Content);
-  transform = transform.toFormat(format);
-  transform = transform.resize(width);
-  const resizedImageBuffer = await transform.toBuffer();
-  return resizedImageBuffer;
-};
+async function resizeImage(imageToBeResize) {
+  let transform = sharp(imageToBeResize);
+  transform = transform.resize({
+    width: 70,
+    height: 70,
+    fit: sharp.fit.inside,
+  });
+  const resizedBuffer = await transform.toBuffer();
+
+  return resizedBuffer;
+}
 
 module.exports = {
   resizeImage,
