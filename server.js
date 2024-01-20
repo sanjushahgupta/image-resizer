@@ -7,7 +7,7 @@ server.get("/resize", async (req, res) => {
   const imageToResize = req.query.image;
 
   try {
-    resize(imageToResize);
+    await resize(imageToResize);
   } catch (e) {
     if (e.Code == "NoSuchKey") {
       res.send("File does not exist");
