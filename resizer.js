@@ -68,7 +68,7 @@ async function uploadToS3(file, fileName) {
 async function resize(name) {
   imageBuffer = await getObjectFromS3(name);
   const resizedBuffer = await resizeImage(imageBuffer);
-  const resizedImageName = "thumbnail_" + name;
+  const resizedImageName = name.replace("original-images", "resized-images");
   await uploadToS3(resizedBuffer, resizedImageName);
 }
 
