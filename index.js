@@ -2,6 +2,9 @@ const { resize } = require("./resizer.js");
 
 exports.handler = async function handler(event) {
   const imageToResize = event.Records[0].s3.object.key;
+
+  console.log("resizing image:", imageToResize);
+
   try {
     await resize(imageToResize);
   } catch (e) {
